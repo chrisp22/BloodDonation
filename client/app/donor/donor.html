@@ -1,0 +1,71 @@
+<div ng-show="$ctrl.alerts.length" class="container info-box">
+  <div class="row">
+    <uib-alert ng-repeat="alert in $ctrl.alerts" type="{{alert.type}}" close="$ctrl.closeAlert($index)" dismiss-on-timeout={{alert.timeout}}><strong>{{alert.msg}}</strong></uib-alert>
+  </div>  
+</div>
+<div class="calcite-panels panel-group calcite-bg-light calcite-text-dark calcite-panels-right">
+  <div class="panel" uib-collapse="$ctrl.panelIsCollapsed">
+    <div class="panel-heading">
+      <div class="panel-title">
+        <a class="panel-toggle" role="button" aria-expanded="false"><span class="glyphicon glyphicon-user" aria-hidden="true"></span> {{$ctrl.panelTitle}}</a>
+        <a class="panel-close" ng-show="$ctrl.panelIsCollapsible" role="button" ng-click="$ctrl.collapsePanel()" aria-label="Close"><span class="esri-icon esri-icon-close" aria-hidden="true"></span></a>
+      </div>
+    </div>
+    <div class="panel-body map-panel-body-long">
+      <form name="donorForm" ng-show="$ctrl.showForm" ng-submit="$ctrl.submitDonor(donorForm.$valid)" novalidate autocomplete="off">
+          <div class="form-group" show-errors>
+            <label for="firstName">First Name</label>
+            <input type="text" id="firstName" name="firstName" class="form-control" ng-model="$ctrl.donor.firstName" placeholder="First Name" required>
+            <div ng-messages="donorForm.firstName.$error" role="alert">
+              <p class="help-block error-text" ng-message="required">First name is required.</p>
+            </div>
+          </div>
+          <div class="form-group" show-errors>
+            <label for="lastName">Last Name</label>
+            <input type="text" id="lastName" name="lastName" class="form-control" ng-model="$ctrl.donor.lastName" placeholder="Last Name" required>
+            <div ng-messages="donorForm.lastName.$error" role="alert">
+              <p class="help-block error-text" ng-message="required">Last name is required.</p>
+            </div>
+          </div>
+          <div class="form-group" show-errors>
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" class="form-control" ng-model="$ctrl.donor.email" placeholder="Email" required>
+            <div ng-messages="donorForm.email.$error" role="alert">
+              <p class="help-block error-text" ng-message="required">Email address is required.</p>
+              <p class="help-block error-text" ng-message="email">Email address is invalid.</p>
+            </div>
+          </div>
+          <div class="form-group" show-errors>
+            <label for="contactNum">Contact Number</label>
+            <input type="text" id="contactNum" name="contactNum" class="form-control" ng-model="$ctrl.donor.contactNum" ng-pattern="/^(?:00|\+)\d{12}$/" required>
+            <div ng-messages="donorForm.contactNum.$error" role="alert">
+              <p class="help-block error-text" ng-message="required">Contact Number is required.</p>
+              <p class="help-block error-text" ng-message="pattern">Contact Number is invalid.</p>
+            </div>
+          </div>
+          <div class="form-group" show-errors>
+            <label for="bloodGroup">Blood Group</label>
+            <select id="bloodGroup" name="bloodGroup" class="form-control" ng-model="$ctrl.donor.bloodGroup" required>
+              <option value="">Select Blood Type</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="AB">AB</option>
+              <option value="O">O</option>
+            </select>
+            <div ng-messages="donorForm.bloodGroup.$error" role="alert">
+              <p class="help-block error-text" ng-message="required">Blood Group is required.</p>
+            </div>
+          </div>
+          <div class="text-center form-group">
+            <button type="submit" class="btn btn-sm btn-success">{{$ctrl.submitBtnName}}</button>
+            <button type="button" ng-show="$ctrl.donor._id" ng-click="$ctrl.deleteDonor()" class="btn btn-sm btn-danger">Delete</button>
+            <button type="button" ng-hide="$ctrl.donor._id" ng-click="$ctrl.collapsePanel()" class="btn btn-sm btn-warning">Cancel</button>
+          </div>
+      </form>
+      <div ng-hide="$ctrl.showForm">
+        <h4 class="text-success">{{$ctrl.panelBody}}</h4>
+        <a href="{{$ctrl.uniqueUrl}}">{{$ctrl.uniqueUrl}}</a>
+      </div>
+    </div>
+  </div>
+</div>

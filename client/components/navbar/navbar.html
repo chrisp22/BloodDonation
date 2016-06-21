@@ -1,0 +1,25 @@
+<div class="navbar navbar-fixed-top calcite-navbar calcite-bg-custom calcite-text-light" style="background-color: rgb(198, 84, 45);">
+  <div class="navbar-header">
+    <a class="navbar-brand" ui-sref="main">
+      <span class="esri-icon esri-icon-map-pin"></span>
+    </a>
+  </div>
+  <!-- Title -->
+  <div class="calcite-title calcite-overflow-hidden">
+    <div class="calcite-title-main">Blood Donor Map</div>
+  </div>
+  <!-- Nav -->
+  <ul class="calcite-nav nav navbar-nav"> 
+    <li><a class="hidden-xs hidden-sm" ui-sref="main.donor" role="tab" > Be a Donor</a></li>
+    <li>
+      <div class="calcite-navbar-search calcite-search-expander">
+        <esri-search view="nav.view" 
+        search-options="{
+          showPopupOnSelect: false,
+          autoSelect: false, 
+          maxSuggestions: 4
+        }"></esri-search>
+      </div>
+    </li>
+  </ul>
+</div>
