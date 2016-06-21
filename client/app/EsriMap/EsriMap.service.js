@@ -308,12 +308,12 @@ angular.module('bloodDonationApp')
         });
 
         var donorsPopup = {
-          title: '{name} (type {bloodType})',
+          title: '<i class="fa fa-user" aria-hidden="true"></i> {name} (type {bloodType})',
           overwriteActions: true,
           actions: [{
             title: 'Show info',
             id: 'show-info',
-            className: 'icon-ui-description'
+            className: 'esri-icon-description'
           }, {
               title: 'Hide info',
               id: 'hide-info',
@@ -346,7 +346,8 @@ angular.module('bloodDonationApp')
 
           mapView.popup.on('trigger-action', function (e) {
             if (e.action.id === 'show-info') {
-              lyr.popupTemplate.content = '<b>Email:</b> {email}';
+              lyr.popupTemplate.content = '<i class="fa fa-envelope fa-fw" aria-hidden="true"></i> {email}<br/>' +
+                '<i class="fa fa-phone fa-fw" aria-hidden="true"></i> {tel}<br/>';
               mapView.popup.close();
               mapView.popup.open();
             }
