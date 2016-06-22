@@ -79,7 +79,7 @@ export function show(req, res) {
 export function create(req, res) {
   return Donor.create(req.body)
     .then(respondWithResult(res, 201))
-    .catch(handleError(res));
+    .catch(handleError(res, 422));
 }
 
 // Updates an existing Donor in the DB
