@@ -12,6 +12,7 @@ angular.module('bloodDonationApp')
      *    or an Error if rejected
      */
     function getDonorsWithinExtent(coords, maxDist) {
+      coords = coords || { longitude: 0.0, latitude: 0.0};
       maxDist = maxDist || 1000;
       var locSearchParam = {
         location: {
