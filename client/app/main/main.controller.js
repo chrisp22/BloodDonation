@@ -11,34 +11,50 @@
 
       $rootScope.$on('$stateChangeStart', 
         (evt, toState, toParams) => {
-          if (!toParams.id) {
-            this.esriMap.moveToCurrentPosition();
+
+          this.mapView.popup.close();
+          switch(toState.name) {
+            case 'main':
+              this.esriMap.setLocMarkerVisible(false);
+              this.esriMap.loadDonorsLayer();
+              break;
+            case 'main.donor':
+              this.esriMap.setLocMarkerVisible(true);
+              this.esriMap.unloadDonorsLayer();
+              if (!toParams.id) {
+                this.esriMap.moveToCurrentPosition();
+              }
           }
-          
-          if (toState.name === 'main') {
-            this.esriMap.setLocMarkerVisible(false);
-            this.esriMap.loadDonorsLayer();
-          }
+
       });
 
     }
 
     $onInit() {
-      this.esriMap.setLocMarkerVisible(false);
 
       // bind the map to the Esri MapView Directive
-      this.esriMap.initMap().then(map => {
+      this.esriMap.getMap().then(map => {
         this.map = map;
       });
 
       this.onViewCreated = (view) => {
-        // customize the view
-        this.esriMap.initView(view);
+        this.mapView = view;
 
+        view.popup.close();
+        switch(this.state.current.name) {
+          case 'main':
+            this.esriMap.setLocMarkerVisible(false);
+            break;
+          case 'main.donor':
+            this.esriMap.setLocMarkerVisible(true);
+        }
         if (!this.state.params.id) {
           this.esriMap.moveToCurrentPosition();
         }
-        
+
+        // customize the view
+        this.esriMap.initView(view);
+
         // watch changes in map extent
         view.watch('center,scale,zoom', () => {  
           if (this.state.current.name === 'main'){ 

@@ -1,10 +1,12 @@
 'use strict';
 
 angular.module('bloodDonationApp')
-  .factory('EsriMap', function ($q, $http, Donors, esriLoader, esriRegistry) {
+  .factory('EsriMap', function ($q, Donors, esriLoader, esriRegistry) {
+
+    var mapView;
     
     var mapLocator;
-    var lyrId = 'donorLayer';
+    var donorLyrId = 'donorLayer';
 
     var locMarkerVisible = true;
 
@@ -24,43 +26,41 @@ angular.module('bloodDonationApp')
       coordinates: []
     };
 
-    function initMap() {
-      var res = $q.defer();
-      esriLoader.require([
+    function getMap() {
+      return esriLoader.require([
         'esri/Map'
-      ], (Map) => {
-        var map = new Map({
-          basemap: baseMap
-        });
-        res.resolve(map);
+      ]).then(esriModules => {
+        var Map = esriModules[0];
+        if (mapView) {
+          return mapView.map;
+        }
+        else {
+          return new Map({
+            basemap: baseMap
+          });
+        }
       });
-      return res.promise;
     }
 
     function initView(view) {
-      self.mapView = view;
-      esriLoader.require([
-        'esri/widgets/Locate',
-        'esri/widgets/Search'
-      ], (Locate, Search) => {
+      mapView = view;
+      mapView.padding = defMapViewProp.padding;
 
-        view.padding = defMapViewProp.padding;
+      var locateOptions = {
+        view: mapView,
+        goToLocationEnabled: false,
+        graphic: null
+      };
 
-        var locateOptions = {
-          view: view,
-          goToLocationEnabled: false,
-          graphic: null
-        };
-        setLocateWidget(view, locateOptions);
-
-      });
+      setLocateWidget(mapView, locateOptions);
     }
 
     function setLocateWidget(view, properties) {
       properties.view = view;
       esriLoader.require([
         'esri/widgets/Locate'
-      ], (Locate) => {
+      ]).then(esriModules => {
+        var Locate = esriModules[0];
 
         var locateWidget = new Locate(properties);
         locateWidget.startup();
@@ -69,36 +69,35 @@ angular.module('bloodDonationApp')
           setLocationInfo(evt.position.coords);
           zoomToLocation(evt.position.coords);
         });
-
       });
     }
 
     function setSearchWidget(view, properties, srcNodeRef) {
       properties.view = view;
-      var res = $q.defer();
-      esriLoader.require([
+      return esriLoader.require([
         'esri/widgets/Search'
-      ], (Search) => {
+      ]).then(esriModules => {
 
-          var searchWidget = new Search(properties, srcNodeRef);
-          searchWidget.startup();
-          searchWidget.on('search-complete', e => {
-            var res = e.results[0].results[0];
+        var Search = esriModules[0];
 
-            locInfo.coordinates = [res.feature.geometry.longitude, res.feature.geometry.latitude];
-            locInfo.address = res.name;
+        var searchWidget = new Search(properties, srcNodeRef);
 
-            zoomToLocation({
-              longitude: res.feature.geometry.longitude,
-              latitude: res.feature.geometry.latitude
-            });
+        searchWidget.startup();
+        searchWidget.on('search-complete', e => {
+          var res = e.results[0].results[0];
+
+          locInfo.coordinates = [res.feature.geometry.longitude, res.feature.geometry.latitude];
+          locInfo.address = res.name;
+
+          zoomToLocation({
+            longitude: res.feature.geometry.longitude,
+            latitude: res.feature.geometry.latitude
           });
+        });
 
-          res.resolve(searchWidget);
+        return searchWidget;
 
       });
-
-      return res.promise;
     }
 
     function zoomToLocation(coords) {
@@ -132,8 +131,8 @@ angular.module('bloodDonationApp')
         marker.geometry.longitude = coords.longitude;
         marker.geometry.latitude = coords.latitude;
 
-        self.mapView.graphics.removeAll();
-        self.mapView.graphics.add(marker);
+        mapView.graphics.removeAll();
+        mapView.graphics.add(marker);
       });
     }
 
@@ -180,13 +179,13 @@ angular.module('bloodDonationApp')
 
     function setLocMarkerVisible(visible) {
       locMarkerVisible = visible;
-      if (!visible && self.mapView) {
-        self.mapView.graphics.removeAll();
+      if (!visible && mapView) {
+        mapView.graphics.removeAll();
       }
     }
 
     function loadDonorsLayer() {
-      Donors.getWithinBox(self.mapView.center, (self.mapView.extent.xmax - self.mapView.extent.xmin) / 2)
+      Donors.getWithinBox(mapView.center, (mapView.extent.xmax - mapView.extent.xmin) / 2)
         .then(res => {
           var markers = res.data.map(createGraphics);
           return $q.all(markers);
@@ -194,10 +193,17 @@ angular.module('bloodDonationApp')
         .then(createLayer);
     }
 
+    function unloadDonorsLayer() {
+      var lyr = mapView.map.findLayerById(donorLyrId);
+      if (lyr) {
+        mapView.map.remove(lyr);
+      }
+    }
+
     function addDonorToLayer(donor) {
       createGraphics(donor)
         .then(function (gDonor) {
-          var lyr = self.mapView.map.findLayerById(lyrId);
+          var lyr = mapView.map.findLayerById(donorLyrId);
           if (lyr) {
             lyr.source.push(gDonor);
           }
@@ -207,7 +213,7 @@ angular.module('bloodDonationApp')
     function updateDonorOnLayer(donor) {
       createGraphics(donor)
         .then(function (gDonorNew) {
-          var lyr = self.mapView.map.findLayerById(lyrId);
+          var lyr = mapView.map.findLayerById(donorLyrId);
           if (lyr) {
             var g = lyr.source;
             var gDonorOld = g.find(function (item) {
@@ -220,7 +226,7 @@ angular.module('bloodDonationApp')
     }
 
     function removeDonorFromLayer(donor) {
-      var lyr = self.mapView.map.findLayerById(lyrId);
+      var lyr = mapView.map.findLayerById(donorLyrId);
       if (lyr) {
         var g = lyr.source;
         var gDonor = g.find(function (item) {
@@ -231,11 +237,12 @@ angular.module('bloodDonationApp')
     }
 
     function createGraphics(dat) {
-      var res = $q.defer();
-      esriLoader.require([
+      return esriLoader.require([
         'esri/geometry/Point',
-      ], function (Point) {
-        res.resolve({
+      ]).then(esriModules => {
+        var Point = esriModules[0];
+
+        return {
           geometry: new Point({
             x: dat.location.coordinates[0],
             y: dat.location.coordinates[1]
@@ -248,21 +255,23 @@ angular.module('bloodDonationApp')
             tel: dat.contactNum,
             address: dat.address
           }
-        });
+        };
+
       });
-      return res.promise;
     }
 
     function createLayer(graphics) {
-      var mapView = self.mapView;
-      var lyr;
-
       esriLoader.require([
         'esri/widgets/Popup',
         'esri/renderers/SimpleRenderer',
         'esri/symbols/SimpleMarkerSymbol',
         'esri/layers/FeatureLayer'
-      ], function (Popup, SimpleRenderer, SimpleMarkerSymbol, FeatureLayer) {
+      ]).then(esriModules => {
+        var Popup = esriModules[0];
+        var SimpleRenderer = esriModules[1];
+        var SimpleMarkerSymbol = esriModules[2];
+        var FeatureLayer = esriModules[3];
+
         var fields = [
           {
             name: 'ObjectID',
@@ -322,14 +331,14 @@ angular.module('bloodDonationApp')
         };
 
         if (graphics.length > 0) {
-          lyr = self.mapView.map.findLayerById(lyrId);
+          var lyr = mapView.map.findLayerById(donorLyrId);
           mapView.popup = new Popup();
           if (lyr) {
-            self.mapView.map.remove(lyr);
+            mapView.map.remove(lyr);
           }
           else {
             lyr = new FeatureLayer({
-              id: lyrId,
+              id: donorLyrId,
               source: graphics,
               fields: fields,
               popupTemplate: donorsPopup,
@@ -342,7 +351,7 @@ angular.module('bloodDonationApp')
             });
           }
 
-          self.mapView.map.add(lyr);
+          mapView.map.add(lyr);
 
           mapView.popup.on('trigger-action', function (e) {
             if (e.action.id === 'show-info') {
@@ -370,7 +379,7 @@ angular.module('bloodDonationApp')
 
     // Public API here
     return {
-      initMap: initMap,
+      getMap: getMap,
       initView: initView,
       getMapView: getMapView,
       zoomToLocation: zoomToLocation,
@@ -379,6 +388,7 @@ angular.module('bloodDonationApp')
       setLocationInfo: setLocationInfo,
       setLocMarkerVisible: setLocMarkerVisible,
       loadDonorsLayer: loadDonorsLayer,
+      unloadDonorsLayer: unloadDonorsLayer,
       addDonorToLayer: addDonorToLayer,
       updateDonorOnLayer: updateDonorOnLayer,
       removeDonorFromLayer: removeDonorFromLayer,

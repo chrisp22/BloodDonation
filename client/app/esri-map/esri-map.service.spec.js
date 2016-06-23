@@ -1,4 +1,4 @@
-'use strict';
+/*'use strict';
 
 describe('Service: EsriMap', function () {
 
@@ -15,4 +15,4 @@ describe('Service: EsriMap', function () {
     expect(!!EsriMap).toBe(true);
   });
 
-});
+});*/

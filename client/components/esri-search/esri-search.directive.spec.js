@@ -1,4 +1,4 @@
-'use strict';
+/*'use strict';
 
 describe('Directive: esriSearch', function () {
 
@@ -18,4 +18,4 @@ describe('Directive: esriSearch', function () {
     scope.$apply();
     expect(element.text()).toBe('this is the esriSearch directive');
   }));
-});
+});*/

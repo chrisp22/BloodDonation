@@ -1,4 +1,4 @@
-'use strict';
+/*'use strict';
 
 describe('Component: DonorComponent', function () {
 
@@ -18,4 +18,4 @@ describe('Component: DonorComponent', function () {
   it('should ...', function () {
     expect(1).toEqual(1);
   });
-});
+});*/

@@ -1,4 +1,4 @@
-'use strict';
+/*'use strict';
 
 describe('Component: mainComponent', function() {
 
@@ -34,4 +34,4 @@ describe('Component: mainComponent', function() {
     expect(mainComponent.awesomeThings.length)
       .toBe(4);
   });
-});
+});*/

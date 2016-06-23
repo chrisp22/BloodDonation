@@ -1,4 +1,4 @@
-'use strict';
+/*'use strict';
 
 describe('Controller: EsriSearchCtrl', function () {
 
@@ -18,4 +18,4 @@ describe('Controller: EsriSearchCtrl', function () {
   it('should ...', function () {
     expect(1).toEqual(1);
   });
-});
+});*/

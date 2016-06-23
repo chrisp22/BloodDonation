@@ -63,14 +63,6 @@ class DonorComponent {
    * Initialize the state
    */
   initState() {
-    // mapview popup should be closed
-    this.esriMap.getMapView().then(res => {
-      var mapView = res.view;
-      mapView.popup.close();
-    });
-    // location marker is visible
-    this.esriMap.setLocMarkerVisible(true);
-
     // initialize substate
     if(!this.donor._id) {
       this.initSignUp(); // signup state
@@ -84,9 +76,6 @@ class DonorComponent {
     this.esriMap.getMapView().then(res => {
       var mapView = res.view;
       
-      // remove all loaded layers
-      mapView.map.removeAll();
-      
       // monitor map click event
       mapView.on('click', e => {
         mapView.hitTest(e.screenPoint).then(res => {
@@ -95,7 +84,7 @@ class DonorComponent {
             var locInfo = this.esriMap.getLocationInfo();
             this.donor.address = locInfo.address;
             this.donor.location.coordinates = locInfo.coordinates;
-            this.scope.$apply(res => {
+            this.scope.$apply(() => {
               this.panelIsCollapsed = false;
             });
           }
@@ -143,7 +132,7 @@ class DonorComponent {
         this.panelBody = 'Here is your unique link to view or modify your information:';
         this.uniqueUrl = this.state.href(this.state.current.name, { id: res.data._id }, {absolute: true});
         this.showForm = false;
-        this.initDonorInfo();
+        this.donor = this.initDonorInfo();
       }, res => {
         this.addAlert({ type: 'danger', msg: res.data.message, timeout: 2000 });
       });
@@ -164,8 +153,6 @@ class DonorComponent {
    */
   deleteDonor() {
     this.donorFctry.remove(this.donor._id).then(res => {
-      //Socket.emit('donor-deleted', self.donor);
-
       this.addAlert({ type: 'danger', msg: 'donor info deleted', timeout: 2000 });
 
       this.timeout(res => {
