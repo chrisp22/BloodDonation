@@ -1,98 +1,131 @@
 'use strict';
 
 angular.module('bloodDonationApp')
-  .factory('EsriMap', function ($q, Donors, esriLoader, esriRegistry) {
+  .factory('EsriMap', function ($q, esriLoader) {
+    var deferredMapView = $q.defer();
 
     var mapView;
-    
-    var mapLocator;
-    var donorLyrId = 'donorLayer';
-
-    var locMarkerVisible = true;
-
-    var baseMap = 'gray';
-
-    var defMapViewProp = {
-      zoom: 8,
-      center: [-101.17, 21.78],
-      scale: 2400000,
+    var mapViewProp = {
+      zoom: 3,
       padding: {
         top: 65
       }
     };
-
-    var locInfo = {
-      address: '',
-      coordinates: []
+    var mapProp = {
+      basemap: 'gray'
     };
 
-    function getMap() {
+    var mapLocator;
+
+    var locationMarker;
+
+    function initialize(mapViewDiv) {
+      return setMap({ basemap: mapProp.basemap })
+        .then(map => {
+          mapViewProp.map = map;
+          mapViewProp.container = mapViewDiv;
+          return setMapView(mapViewProp);
+        });
+    }
+
+    function setMap(properties) {
+      return esriLoader.require(['esri/Map'])
+        .then(esriModules => {
+          var Map = esriModules[0];
+          return new Map(properties);
+        });
+    }
+
+    function setMapView(properties) {
+      return esriLoader.require(['esri/views/MapView'])
+        .then(esriModules => {
+          var MapView = esriModules[0];
+          mapView = new MapView(properties);
+          deferredMapView.resolve({ view: mapView });
+          return deferredMapView.promise;
+        });
+    }
+
+    function getMapView() {
+      return deferredMapView.promise;
+    }
+
+    function setLocateWidget(opts) {
+      var srcNodeRef;
+
+      if (!opts || !opts.view) {
+        return $q.reject('MapView is undefined');
+      }
+
+      srcNodeRef = opts.container;
+
+      opts.container = undefined;
+      opts.goToLocationEnabled = false;
+      opts.graphic = null;
+
       return esriLoader.require([
-        'esri/Map'
-      ]).then(esriModules => {
-        var Map = esriModules[0];
-        if (mapView) {
-          return mapView.map;
-        }
-        else {
-          return new Map({
-            basemap: baseMap
-          });
-        }
-      });
-    }
-
-    function initView(view) {
-      mapView = view;
-      mapView.padding = defMapViewProp.padding;
-
-      var locateOptions = {
-        view: mapView,
-        goToLocationEnabled: false,
-        graphic: null
-      };
-
-      setLocateWidget(mapView, locateOptions);
-    }
-
-    function setLocateWidget(view, properties) {
-      properties.view = view;
-      esriLoader.require([
         'esri/widgets/Locate'
       ]).then(esriModules => {
         var Locate = esriModules[0];
 
-        var locateWidget = new Locate(properties);
+        var locateWidget = new Locate(opts, srcNodeRef);
         locateWidget.startup();
-        view.ui.add(locateWidget, 'top-left');
-        locateWidget.on('locate', evt => {
-          setLocationInfo(evt.position.coords);
-          zoomToLocation(evt.position.coords);
+
+        if (!srcNodeRef) {
+          opts.view.ui.add(locateWidget, 'top-left');
+        }
+
+        locateWidget.on('locate', e => {
+          zoomToLocation({
+            view: opts.view,
+            coordinates: e.position.coords
+          });
         });
+
+        return locateWidget;
       });
+
     }
 
-    function setSearchWidget(view, properties, srcNodeRef) {
-      properties.view = view;
+    function setSearchWidget(opts) {
+      var srcNodeRef;
+
+      if (!opts || !opts.view) {
+        return $q.reject('MapView is undefined');
+      }
+
+      srcNodeRef = opts.container;
+
+      opts.container = undefined;
+      opts.showPopupOnSelect = false;
+      opts.autoSelect = false;
+
       return esriLoader.require([
         'esri/widgets/Search'
       ]).then(esriModules => {
-
         var Search = esriModules[0];
 
-        var searchWidget = new Search(properties, srcNodeRef);
-
+        var searchWidget = new Search(opts, srcNodeRef);
         searchWidget.startup();
+
+        if (!srcNodeRef) {
+          opts.view.ui.add(searchWidget, 'top-right');
+        }
+
         searchWidget.on('search-complete', e => {
-          var res = e.results[0].results[0];
+          if (e.results.length > 0 && e.results[0].results.length > 0) {
+            var res = e.results[0].results[0];
+            var coords = {
+              longitude: res.feature.geometry.longitude,
+              latitude: res.feature.geometry.latitude
+            };
 
-          locInfo.coordinates = [res.feature.geometry.longitude, res.feature.geometry.latitude];
-          locInfo.address = res.name;
-
-          zoomToLocation({
-            longitude: res.feature.geometry.longitude,
-            latitude: res.feature.geometry.latitude
-          });
+            zoomToLocation({
+              view: opts.view,
+              coordinates: coords,
+              address: res.name
+            });
+          }
         });
 
         return searchWidget;
@@ -100,140 +133,132 @@ angular.module('bloodDonationApp')
       });
     }
 
-    function zoomToLocation(coords) {
-      getMapView().then(function(res) {
-        res.view.goTo({
-          target: [coords.longitude, coords.latitude],
-          zoom: defMapViewProp.zoom
+    function setLocationMarker(opts) {
+      return esriLoader.require([
+        'esri/Graphic',
+        'esri/symbols/support/jsonUtils',
+        'esri/geometry/Point'
+      ]).then(esriModules => {
+        var Graphic = esriModules[0];
+        var jsonUtils = esriModules[1];
+        var Point = esriModules[2];
+
+        locationMarker = new Graphic({
+          symbol: jsonUtils.fromJSON(opts.symbol),
+          geometry: new Point({
+            x: 0,
+            y: 0,
+            spatialReference: {
+              wkid: 4326
+            }
+          }),
+          visible: opts.visible
         });
 
-        if (locMarkerVisible) {
-          moveLocMarker(coords);
+        return locationMarker;
+      });
+    }
+
+    function updateLocationMarker(opts) {
+      if (opts && opts.view) {
+        var view = opts.view;
+        var marker = locationMarker.clone();
+        var geometry = marker.geometry.clone();
+
+        if (opts.geometry) {
+          geometry.set(opts.geometry);
+          opts.geometry = geometry;
         }
-      });
+        opts.view = undefined;
+
+        view.graphics.remove(locationMarker);
+        marker.set(opts);
+        view.graphics.add(marker);
+        locationMarker = marker;
+      }
     }
 
-    /**
-     * moveLocMarker Draw a marker to the map
-     * @param {Object} coords Coordinate position
-     * @return {Graphic} marker The marker
-     */
-    function moveLocMarker(coords) {
-      esriLoader.require([
-        'esri/geometry/Point',
-        'esri/symbols/SimpleMarkerSymbol',
-        'esri/Graphic'
-      ], function (Point, SimpleMarkerSymbol, Graphic) {
-        var marker = new Graphic({
-          symbol: new SimpleMarkerSymbol({ color: 'blue' }),
-          geometry: new Point(0, 0)
+    function zoomToLocation(opts) {
+      if (opts.view) {
+        opts.zoom = opts.zoom || 8;
+        opts.view.goTo({
+          target: [opts.coordinates.longitude, opts.coordinates.latitude],
+          zoom: opts.zoom
         });
-        marker.geometry.longitude = coords.longitude;
-        marker.geometry.latitude = coords.latitude;
 
-        mapView.graphics.removeAll();
-        mapView.graphics.add(marker);
-      });
+        // update the marker
+        if (!opts.address) {
+          var promise = coordinatesToAddress(opts.coordinates);
+        }
+        else {
+          var promise = $q.when(opts.address);
+        }
+        promise.then(address => {
+          updateLocationMarker({
+            view: opts.view,
+            attributes: {
+              address: address
+            },
+            geometry: {
+              longitude: opts.coordinates.longitude,
+              latitude: opts.coordinates.latitude
+            }
+          });
+        });
+
+      }
     }
 
-    function moveToCurrentPosition() {
+    function moveToCurrentPosition(view) {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function (loc) {
-          setLocationInfo(loc.coords);
-          zoomToLocation(loc.coords);
+          zoomToLocation({
+            view: view,
+            coordinates: loc.coords
+          });
         });
       }
     }
 
     function getLocationInfo() {
-      return locInfo;
+      return {
+        address: locationMarker.getAttribute('address'),
+        coordinates: [locationMarker.geometry.longitude, locationMarker.geometry.latitude]
+      };
     }
 
-    function setLocationInfo(coords, address) {
-      locInfo.coordinates = [coords.longitude, coords.latitude];
-      if (address) {
-        locInfo.address = address;
-      }
-      else {
-        esriLoader.require([
-          'esri/geometry/Point',
-          'esri/tasks/Locator'
-        ], function (Point, Locator) {
-          // map locator
-          if (!mapLocator) {
-            mapLocator = new Locator('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer');
-          }
-          mapLocator.locationToAddress(new Point(coords)).then(function (res) {
-            // jscs:disable requireCamelCaseOrUpperCaseIdentifiers
-            locInfo.address = res.address.Match_addr;
-            // jscs:enable requireCamelCaseOrUpperCaseIdentifiers
-          });
+    function coordinatesToAddress(coords) {
+      return esriLoader.require([
+        'esri/geometry/Point',
+        'esri/tasks/Locator'
+      ]).then(esriModules => {
+        var Point = esriModules[0];
+        // map locator
+        if (!mapLocator) {
+          var Locator = esriModules[1];
+          mapLocator = new Locator('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer');
+        }
+        return mapLocator.locationToAddress(new Point(coords)).then(function (res) {
+          // jscs:disable requireCamelCaseOrUpperCaseIdentifiers
+          return res.address.Match_addr;
+          // jscs:enable requireCamelCaseOrUpperCaseIdentifiers
         });
-      }
-      
+      });
     }
 
-    function getMapView() {
-      return esriRegistry.get('donorMap');
-    }
+    function projectToGeographic(geom) {
+      return esriLoader.require([
+        'esri/geometry/support/webMercatorUtils',
+        'esri/geometry/SpatialReference'
+      ]).then(esriModules => {
+        var webMercatorUtils = esriModules[0];
+        var SpatialReference = esriModules[1];
 
-    function setLocMarkerVisible(visible) {
-      locMarkerVisible = visible;
-      if (!visible && mapView) {
-        mapView.graphics.removeAll();
-      }
-    }
-
-    function loadDonorsLayer() {
-      Donors.getWithinBox(mapView.center, (mapView.extent.xmax - mapView.extent.xmin) / 2)
-        .then(res => {
-          var markers = res.data.map(createGraphics);
-          return $q.all(markers);
-        })
-        .then(createLayer);
-    }
-
-    function unloadDonorsLayer() {
-      var lyr = mapView.map.findLayerById(donorLyrId);
-      if (lyr) {
-        mapView.map.remove(lyr);
-      }
-    }
-
-    function addDonorToLayer(donor) {
-      createGraphics(donor)
-        .then(function (gDonor) {
-          var lyr = mapView.map.findLayerById(donorLyrId);
-          if (lyr) {
-            lyr.source.push(gDonor);
-          }
-        });
-    }
-
-    function updateDonorOnLayer(donor) {
-      createGraphics(donor)
-        .then(function (gDonorNew) {
-          var lyr = mapView.map.findLayerById(donorLyrId);
-          if (lyr) {
-            var g = lyr.source;
-            var gDonorOld = g.find(function (item) {
-              return item.attributes.ObjectID === gDonorNew.attributes.ObjectID;
-            });
-            g.remove(gDonorOld);
-            g.push(gDonorNew);
-          }
-        });
-    }
-
-    function removeDonorFromLayer(donor) {
-      var lyr = mapView.map.findLayerById(donorLyrId);
-      if (lyr) {
-        var g = lyr.source;
-        var gDonor = g.find(function (item) {
-          return item.attributes.ObjectID === donor._id;
-        });
-        g.remove(gDonor);
-      }
+        if (webMercatorUtils.canProject(geom.spatialReference, SpatialReference.WGS84)) {
+          return webMercatorUtils.project(geom, SpatialReference.WGS84);
+        }
+        return geom;
+      });
     }
 
     function createGraphics(dat) {
@@ -243,155 +268,85 @@ angular.module('bloodDonationApp')
         var Point = esriModules[0];
 
         return {
-          geometry: new Point({
-            x: dat.location.coordinates[0],
-            y: dat.location.coordinates[1]
-          }),
-          attributes: {
-            ObjectID: dat._id,
-            name: dat.firstName + ' ' + dat.lastName,
-            bloodType: dat.bloodGroup,
-            email: dat.email,
-            tel: dat.contactNum,
-            address: dat.address
-          }
+          geometry: new Point(dat.geometry),
+          attributes: dat.attributes
         };
 
       });
     }
 
-    function createLayer(graphics) {
-      esriLoader.require([
+    function createLayer(opts) {
+      return esriLoader.require([
         'esri/widgets/Popup',
         'esri/renderers/SimpleRenderer',
         'esri/symbols/SimpleMarkerSymbol',
-        'esri/layers/FeatureLayer'
+        'esri/layers/FeatureLayer',
+        'esri/renderers/support/jsonUtils'
       ]).then(esriModules => {
         var Popup = esriModules[0];
         var SimpleRenderer = esriModules[1];
         var SimpleMarkerSymbol = esriModules[2];
         var FeatureLayer = esriModules[3];
+        var Renderers = esriModules[4];
 
-        var fields = [
-          {
-            name: 'ObjectID',
-            alias: 'ObjectID',
-            type: 'oid'
-          },
-          {
-            name: 'name',
-            alias: 'name',
-            type: 'string'
-          },
-          {
-            name: 'bloodType',
-            alias: 'bloodType',
-            type: 'string'
-          },
-          {
-            name: 'email',
-            alias: 'email',
-            type: 'string'
-          },
-          {
-            name: 'tel',
-            alias: 'tel',
-            type: 'string'
-          },
-          {
-            name: 'address',
-            alias: 'address',
-            type: 'string'
-          }
-        ];
-
-        var donorsRenderer = new SimpleRenderer({
-          symbol: new SimpleMarkerSymbol({
-            size: 12,
-            color: 'red',
-            outline: {
-              width: 0.5,
-              color: 'white'
-            }
-          })
-        });
-
-        var donorsPopup = {
-          title: '<i class="fa fa-user" aria-hidden="true"></i> {name} (type {bloodType})',
-          overwriteActions: true,
-          actions: [{
-            title: 'Show info',
-            id: 'show-info',
-            className: 'esri-icon-description'
-          }, {
-              title: 'Hide info',
-              id: 'hide-info',
-              visible: false
-            }]
-        };
-
-        if (graphics.length > 0) {
-          var lyr = mapView.map.findLayerById(donorLyrId);
-          mapView.popup = new Popup();
-          if (lyr) {
-            mapView.map.remove(lyr);
+        if (!opts.renderer) {
+          if (locationMarker) {
+            opts.renderer = new SimpleRenderer({
+              symbol: locationMarker.symbol
+            });
           }
           else {
-            lyr = new FeatureLayer({
-              id: donorLyrId,
-              source: graphics,
-              fields: fields,
-              popupTemplate: donorsPopup,
-              renderer: donorsRenderer,
-              spatialReference: {
-                wkid: 4326
-              },
-              objectIdField: 'ObjectID',
-              geometryType: 'point'
+            opts.renderer = new SimpleRenderer({
+              symbol: new SimpleMarkerSymbol({
+                size: 12,
+                color: 'red',
+                outline: {
+                  width: 0.5,
+                  color: 'white'
+                }
+              })
             });
           }
-
-          mapView.map.add(lyr);
-
-          mapView.popup.on('trigger-action', function (e) {
-            if (e.action.id === 'show-info') {
-              lyr.popupTemplate.content = '<i class="fa fa-envelope fa-fw" aria-hidden="true"></i> {email}<br/>' +
-                '<i class="fa fa-phone fa-fw" aria-hidden="true"></i> {tel}<br/>';
-              mapView.popup.close();
-              mapView.popup.open();
-            }
-            if (e.action.id === 'hide-info') {
-              lyr.popupTemplate.content = '';
-            }
-          });
-
-          mapView.on('click', function (e) {
-            mapView.hitTest(e.screenPoint).then(function (response) {
-              // if a marker is clicked
-              if (response.results.length > 0 && response.results[0].graphic) {
-                mapView.popup.triggerAction(1);
-              }
-            });
-          });
         }
+        else {
+          opts.renderer = Renderers.fromJSON(opts.renderer);
+        }
+        
+        var lyr = {};
+
+        if (opts.source.length > 0) {
+          //mapView.popup = new Popup();
+
+          var lyr = new FeatureLayer({
+            id: opts.id,
+            source: opts.source,
+            fields: opts.fields,
+            renderer: opts.renderer,
+            spatialReference: opts.spatialReference,
+            objectIdField: opts.objectIdField,
+            geometryType: opts.renderer.type,
+            visible: true
+          });
+
+        }
+
+        return { layer: lyr };
       });
     }
 
     // Public API here
     return {
-      getMap: getMap,
-      initView: initView,
+      initialize: initialize,
       getMapView: getMapView,
+      setLocateWidget: setLocateWidget,
+      setSearchWidget: setSearchWidget,
+      setLocationMarker: setLocationMarker,
+      updateLocationMarker: updateLocationMarker,
       zoomToLocation: zoomToLocation,
       moveToCurrentPosition: moveToCurrentPosition,
       getLocationInfo: getLocationInfo,
-      setLocationInfo: setLocationInfo,
-      setLocMarkerVisible: setLocMarkerVisible,
-      loadDonorsLayer: loadDonorsLayer,
-      unloadDonorsLayer: unloadDonorsLayer,
-      addDonorToLayer: addDonorToLayer,
-      updateDonorOnLayer: updateDonorOnLayer,
-      removeDonorFromLayer: removeDonorFromLayer,
-      setSearchWidget: setSearchWidget
+      createGraphics: createGraphics,
+      createLayer: createLayer,
+      projectToGeographic: projectToGeographic
     };
   });

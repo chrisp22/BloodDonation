@@ -2,16 +2,10 @@
 
 class NavbarController {
   
-  constructor(EsriMap) {
-    this.esriMap = EsriMap;
+  constructor() {
   }
 
   $onInit() {
-
-    this.esriMap.getMapView().then(res => {
-      this.view = res.view;
-    });
-
   }
 
 }

@@ -11,25 +11,17 @@ angular.module('bloodDonationApp')
      * @returns {Promise.<Donor[], Error>} A promise that returns Donor[] if resolved,
      *    or an Error if rejected
      */
-    function getDonorsWithinExtent(coords, maxDist) {
-      coords = coords || { longitude: 0.0, latitude: 0.0};
-      maxDist = maxDist || 1000;
-      var locSearchParam = {
-        location: {
-          $near: {
-            $geometry: {
-              type: 'Point',
-              coordinates: [coords.longitude, coords.latitude]
-            },
-            $maxDistance: maxDist
+    function listDonors(params) {
+
+      if (params) {
+        return $http.get('api/donors', {
+          params: {
+            query: params
           }
-        }
-      };
-      return $http.get('api/donors', {
-        params: {
-          query: locSearchParam
-        }
-      });
+        });
+      }
+      
+      return $http.get('api/donors');
     }
 
     /**
@@ -78,7 +70,7 @@ angular.module('bloodDonationApp')
 
     // Public API here
     return {
-      getWithinBox: getDonorsWithinExtent,
+      list: listDonors,
       get: getDonor,
       create: createDonor,
       update: updateDonor,

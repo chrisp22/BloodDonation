@@ -63,32 +63,30 @@ class DonorComponent {
    * Initialize the state
    */
   initState() {
-    // initialize substate
-    if(!this.donor._id) {
-      this.initSignUp(); // signup state
-    }
-    else {
-      this.initEditInfo(); // update info state
-    }
+    this.esriMap.getMapView().then(res => {
+      this.mapView = res.view;
+      if(!this.donor._id) {
+        this.initSignUp(); // signup state
+      }
+      else {
+        this.initEditInfo(); // update info state
+      }
+    });
   }
 
   initSignUp() {
-    this.esriMap.getMapView().then(res => {
-      var mapView = res.view;
-      
-      // monitor map click event
-      mapView.on('click', e => {
-        mapView.hitTest(e.screenPoint).then(res => {
-          // if a marker is clicked
-          if(res.results.length > 0 && res.results[0].graphic){
-            var locInfo = this.esriMap.getLocationInfo();
-            this.donor.address = locInfo.address;
-            this.donor.location.coordinates = locInfo.coordinates;
-            this.scope.$apply(() => {
-              this.panelIsCollapsed = false;
-            });
-          }
-        });
+    // monitor map click event
+    this.mapView.on('click', e => {
+      this.mapView.hitTest(e.screenPoint).then(res => {
+        // if a marker is clicked
+        if(res.results.length > 0 && res.results[0].graphic){
+          var locInfo = this.esriMap.getLocationInfo();
+          this.donor.address = locInfo.address;
+          this.donor.location.coordinates = locInfo.coordinates;
+          this.scope.$apply(() => {
+            this.panelIsCollapsed = false;
+          });
+        }
       });
     });
   }
@@ -96,20 +94,24 @@ class DonorComponent {
   initEditInfo() {
     this.donorFctry.get(this.donor._id).then(res => {
       this.donor = res.data;
-      var coords = {
-        longitude: res.data.location.coordinates[0],
-        latitude: res.data.location.coordinates[1]
+      var opts = {
+        view: this.mapView,
+        coordinates: {
+          longitude: this.donor.location.coordinates[0],
+          latitude: this.donor.location.coordinates[1]
+        },
+        address: this.donor.address
       };
-      this.esriMap.zoomToLocation(coords);
+      this.esriMap.zoomToLocation(opts);
       this.panelTitle = 'Update Info';
       this.submitBtnName = 'Update';
       this.panelIsCollapsed = false;
       this.panelIsCollapsible = false;
-    }, res => {
+    }, () => {
       this.addAlert({ type: 'danger', msg: 'id not found', timeout: 2000 });
 
       this.timeout(() => {
-        this.state.go('.', { id: undefined })
+        this.state.go('.', { id: undefined });
       }, 2000);
     });
   }
@@ -140,7 +142,7 @@ class DonorComponent {
     else {
       this.showForm = true;
     
-      this.donorFctry.update(this.donor).then(res => {
+      this.donorFctry.update(this.donor).then(() => {
         this.addAlert({ type: 'success', msg: 'your information was updated', timeout: 2000 });
       }, res => {
         this.addAlert({ type: 'danger', msg: res.data.message, timeout: 2000 });
@@ -152,11 +154,11 @@ class DonorComponent {
    * Deletes Donor matching the form data
    */
   deleteDonor() {
-    this.donorFctry.remove(this.donor._id).then(res => {
+    this.donorFctry.remove(this.donor._id).then(() => {
       this.addAlert({ type: 'danger', msg: 'donor info deleted', timeout: 2000 });
 
-      this.timeout(res => {
-        this.state.go('.', { id: undefined })
+      this.timeout(() => {
+        this.state.go('.', { id: undefined });
       }, 2000);
     }, res => {
       this.addAlert({ type: 'danger', msg: res.data.message, timeout: 2000 });
