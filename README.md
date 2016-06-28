@@ -1,32 +1,25 @@
-# blood-donation
+# Blood Donor Finder
 
-This project was generated with the [Angular Full-Stack Generator](https://github.com/DaftMonk/generator-angular-fullstack) version 3.7.5.
+A single page blood donation management system to facilitate the patients from all around the world, find
+blood donors near them.
 
-## Getting Started
+## Features
 
-### Prerequisites
+- Main page
+    + loads a map showing available donors in the area as pins
+    + clicking a pin shows a popup displaying the donor's information
+    + pins are lazy loaded, only those in the visible area are loaded
+- Donor page
+    + loads a map showing a single pin indicating the donor's location
+    + a signup form will show up when the pin is clicked
+    + on submitting the form, a unique private link will be shown along with a success message
+    + this unique link can be used to show, modify or delete his/her information
+    + changes are applied real time
+    + the pins's location can be change by searching a location through the search box or pressing the locate widget
 
-- [Git](https://git-scm.com/)
-- [Node.js and npm](nodejs.org) Node ^4.2.3, npm ^2.14.7
-- [Bower](bower.io) (`npm install --global bower`)
-- [Ruby](https://www.ruby-lang.org) and then `gem install sass`
-- [Grunt](http://gruntjs.com/) (`npm install --global grunt-cli`)
-- [MongoDB](https://www.mongodb.org/) - Keep a running daemon with `mongod`
+## Technical Information
 
-### Developing
-
-1. Run `npm install` to install server dependencies.
-
-2. Run `bower install` to install front-end dependencies.
-
-3. Run `mongod` in a separate shell to keep an instance of the MongoDB Daemon running
-
-4. Run `grunt serve` to start the development server. It should automatically open the client in your browser when ready.
-
-## Build & development
-
-Run `grunt build` for building and `grunt serve` for preview.
-
-## Testing
-
-Running `npm test` will run the unit tests with karma.
+- Generated with the [Angular Full-Stack Generator](https://github.com/DaftMonk/generator-angular-fullstack) version 3.7.5
+- APIs:
+    + [ArcGIS for JavaScript](https://developers.arcgis.com/javascript/) version 4.0
+    + [Socket.IO](http://socket.io/) version 1.3.5
